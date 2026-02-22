@@ -191,7 +191,7 @@ apply_logging_config(logger)
 
 
 def get_user_agent(backend: Backend | None) -> str:
-    user_agent = f"Mistral-Vibe/{__version__}"
+    user_agent = f"Memo-Vibe/{__version__}"
     if backend == Backend.MISTRAL:
         mistral_sdk_prefix = "mistral-client-python/"
         user_agent = f"{mistral_sdk_prefix}{user_agent}"

@@ -723,7 +723,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mistral-vibe"
+name = "memo-vibe"
 version = "2.2.1"
 source = { editable = "." }
 dependencies = [

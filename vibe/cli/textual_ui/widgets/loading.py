@@ -41,7 +41,7 @@ class LoadingWidget(SpinnerMixin, Static):
         "Reading Proust",
         "Oui oui baguette",
         "Counting Rs in strawberry",
-        "Seeding Mistral weights",
+        "Seeding AI weights",
         "Vibing",
         "Sending good vibes",
         "Petting le chat",

@@ -19,10 +19,12 @@ from vibe.core.telemetry.send import TelemetryClient
 from vibe.setup.onboarding.base import OnboardingScreen
 
 PROVIDER_HELP = {
-    "mistral": ("https://console.mistral.ai/codestral/cli", "Mistral AI Studio")
+    "mistral": ("https://console.mistral.ai/codestral/cli", "Mistral AI Studio"),
+    "openai": ("https://platform.openai.com/docs/quickstart", "OpenAI Platform"),
+    "anthropic": ("https://console.anthropic.com/", "Anthropic Console"),
 }
 CONFIG_DOCS_URL = (
-    "https://github.com/mistralai/mistral-vibe?tab=readme-ov-file#configuration"
+    "https://github.com/memo-vibe/memo-vibe?tab=readme-ov-file#configuration"
 )
 
 

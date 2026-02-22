@@ -1407,7 +1407,7 @@ class VibeApp(App):  # noqa: PLR0904
             )
             return
 
-        message = f"{update_message_prefix}\nPlease update mistral-vibe with your package manager"
+        message = f"{update_message_prefix}\nPlease update memo-vibe with your package manager"
 
         self.notify(
             message, title="Update available", severity="information", timeout=10
@@ -1437,7 +1437,7 @@ class VibeApp(App):  # noqa: PLR0904
             return
         with self.suspend():
             rprint(
-                "Mistral Vibe has been suspended. Run [bold cyan]fg[/bold cyan] to bring Mistral Vibe back."
+                "Memo Vibe has been suspended. Run [bold cyan]fg[/bold cyan] to bring Memo Vibe back."
             )
             os.kill(os.getpid(), signal.SIGTSTP)
 
@@ -1461,7 +1461,7 @@ def run_textual_ui(
     initial_prompt: str | None = None,
     teleport_on_start: bool = False,
 ) -> None:
-    update_notifier = PyPIUpdateGateway(project_name="mistral-vibe")
+    update_notifier = PyPIUpdateGateway(project_name="memo-vibe")
     update_cache_repository = FileSystemUpdateCacheRepository()
     plan_offer_gateway = HttpWhoAmIGateway()
     app = VibeApp(

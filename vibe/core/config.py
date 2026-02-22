@@ -249,7 +249,7 @@ MCPServer = Annotated[
 class ModelConfig(BaseModel):
     name: str
     provider: str
-    alias: str
+    alias: str = ""
     temperature: float = 0.2
     input_price: float = 0.0  # Price per million input tokens
     output_price: float = 0.0  # Price per million output tokens
@@ -275,26 +275,58 @@ DEFAULT_PROVIDERS = [
         backend=Backend.MISTRAL,
     ),
     ProviderConfig(
-        name="llamacpp",
-        api_base="http://127.0.0.1:8080/v1",
-        api_key_env_var="",  # NOTE: if you wish to use --api-key in llama-server, change this value
+        name="openai",
+        api_base="https://api.openai.com/v1",
+        api_key_env_var="OPENAI_API_KEY",
+        api_style="openai",
+    ),
+    ProviderConfig(
+        name="anthropic",
+        api_base="https://api.anthropic.com",
+        api_key_env_var="ANTHROPIC_API_KEY",
+        api_style="anthropic",
+        reasoning_field_name="reasoning",
+    ),
+    ProviderConfig(
+        name="llamacpp", api_base="http://127.0.0.1:8080/v1", api_key_env_var=""
+    ),
+    ProviderConfig(
+        name="ollama",
+        api_base="http://localhost:11434/v1",
+        api_key_env_var="",
+        api_style="openai",
+    ),
+    ProviderConfig(
+        name="fireworks",
+        api_base="https://api.fireworks.ai/inference/v1",
+        api_key_env_var="FIREWORKS_API_KEY",
+        api_style="openai",
     ),
 ]
 
 DEFAULT_MODELS = [
-    ModelConfig(
-        name="mistral-vibe-cli-latest",
-        provider="mistral",
-        alias="devstral-2",
-        input_price=0.4,
-        output_price=2.0,
-    ),
     ModelConfig(
         name="devstral-small-latest",
         provider="mistral",
         alias="devstral-small",
         input_price=0.1,
         output_price=0.3,
+    ),
+    ModelConfig(name="gpt-4o", provider="openai", input_price=2.5, output_price=10.0),
+    ModelConfig(
+        name="gpt-4o-mini", provider="openai", input_price=0.15, output_price=0.6
+    ),
+    ModelConfig(
+        name="claude-sonnet-4-20250514",
+        provider="anthropic",
+        input_price=3.0,
+        output_price=15.0,
+    ),
+    ModelConfig(
+        name="claude-haiku-3-20240307",
+        provider="anthropic",
+        input_price=0.8,
+        output_price=4.0,
     ),
     ModelConfig(
         name="devstral",
@@ -303,11 +335,21 @@ DEFAULT_MODELS = [
         input_price=0.0,
         output_price=0.0,
     ),
+    ModelConfig(name="llama3.1", provider="ollama", input_price=0.0, output_price=0.0),
+    ModelConfig(
+        name="qwen2.5-coder", provider="ollama", input_price=0.0, output_price=0.0
+    ),
+    ModelConfig(
+        name="fireworks-ai/accounts/fireworks/models/llama-v3p1-70b-instruct",
+        provider="fireworks",
+        input_price=0.9,
+        output_price=0.9,
+    ),
 ]
 
 
 class VibeConfig(BaseSettings):
-    active_model: str = "devstral-2"
+    active_model: str = "gpt-4o-mini"
     vim_keybindings: bool = False
     disable_welcome_banner_animation: bool = False
     autocopy_to_clipboard: bool = True

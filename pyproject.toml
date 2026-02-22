@@ -1,17 +1,18 @@
 [project]
-name = "mistral-vibe"
+name = "memo-vibe"
 version = "2.2.1"
-description = "Minimal CLI coding agent by Mistral"
+description = "Minimal CLI coding agent"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Mistral AI" }]
+authors = [{ name = "Memo Vibe" }]
 keywords = [
     "ai",
     "cli",
     "coding-assistant",
-    "mistral",
     "llm",
+    "openai",
+    "anthropic",
     "developer-tools",
 ]
 classifiers = [
@@ -56,10 +57,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mistralai/mistral-vibe"
-Repository = "https://github.com/mistralai/mistral-vibe"
-Issues = "https://github.com/mistralai/mistral-vibe/issues"
-Documentation = "https://github.com/mistralai/mistral-vibe#readme"
+Homepage = "https://github.com/memo-vibe/memo-vibe"
+Repository = "https://github.com/memo-vibe/memo-vibe"
+Issues = "https://github.com/memo-vibe/memo-vibe/issues"
+Documentation = "https://github.com/memo-vibe/memo-vibe#readme"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs", "editables"]
@@ -73,7 +74,9 @@ include = ["vibe/"]
 
 
 [project.scripts]
+memo = "vibe.cli.entrypoint:main"
 vibe = "vibe.cli.entrypoint:main"
+memo-acp = "vibe.acp.entrypoint:main"
 vibe-acp = "vibe.acp.entrypoint:main"
 
 

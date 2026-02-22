@@ -696,10 +696,9 @@ class VibeApp(App):  # noqa: PLR0904
 
             message = str(e)
             if isinstance(e, RateLimitError):
-                if self.plan_type == PlanType.FREE:
-                    message = "Rate limits exceeded. Please wait a moment before trying again, or upgrade to Pro for higher rate limits and uninterrupted access."
-                else:
-                    message = "Rate limits exceeded. Please wait a moment before trying again."
+                message = (
+                    "Rate limits exceeded. Please wait a moment before trying again."
+                )
 
             await self._mount_and_scroll(
                 ErrorMessage(message, collapsed=self._tools_collapsed)

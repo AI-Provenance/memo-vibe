@@ -6,7 +6,7 @@ from textual.widgets.text_area import TextAreaTheme
 from tests.cli.plan_offer.adapters.fake_whoami_gateway import FakeWhoAmIGateway
 from tests.conftest import build_test_agent_loop, build_test_vibe_config
 from tests.stubs.fake_backend import FakeBackend
-from vibe.cli.plan_offer.ports.whoami_gateway import WhoAmIResponse
+from vibe.cli.plan_offer.ports.whoami_gateway import WhoAmIResponse, WhoAmIGateway
 from vibe.cli.textual_ui.app import VibeApp
 from vibe.cli.textual_ui.widgets.chat_input import ChatTextArea
 from vibe.core.agents.models import BuiltinAgentName
@@ -34,6 +34,7 @@ class BaseSnapshotTestApp(VibeApp):
         self,
         config: VibeConfig | None = None,
         backend: FakeBackend | None = None,
+        plan_offer_gateway: WhoAmIGateway | None = None,
         **kwargs,
     ):
         agent_loop = build_test_agent_loop(
@@ -43,16 +44,14 @@ class BaseSnapshotTestApp(VibeApp):
             backend=backend or FakeBackend(),
         )
 
-        plan_offer_gateway = kwargs.pop(
-            "plan_offer_gateway",
-            FakeWhoAmIGateway(
+        if plan_offer_gateway is None:
+            plan_offer_gateway = FakeWhoAmIGateway(
                 WhoAmIResponse(
                     is_pro_plan=True,
                     advertise_pro_plan=False,
                     prompt_switching_to_pro_plan=False,
                 )
-            ),
-        )
+            )
 
         super().__init__(
             agent_loop=agent_loop, plan_offer_gateway=plan_offer_gateway, **kwargs

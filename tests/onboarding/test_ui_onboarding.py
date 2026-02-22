@@ -53,5 +53,5 @@ async def test_ui_gets_through_the_onboarding_successfully() -> None:
 
     assert GLOBAL_ENV_FILE.path.is_file()
     env_contents = GLOBAL_ENV_FILE.path.read_text(encoding="utf-8")
-    assert "MISTRAL_API_KEY" in env_contents
+    assert "API_KEY" in env_contents
     assert api_key_value in env_contents

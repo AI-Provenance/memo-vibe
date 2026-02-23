@@ -78,6 +78,18 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("--setup", action="store_true", help="Setup API key and exit")
     parser.add_argument(
+        "--model",
+        metavar="MODEL",
+        help="Model to use (e.g., gpt-4o, claude-sonnet-4-20250514). "
+        "Overrides the active_model from config.",
+    )
+    parser.add_argument(
+        "--api-key",
+        metavar="KEY",
+        help="API key to use for the model's provider. "
+        "Sets the API key as an environment variable for the current session.",
+    )
+    parser.add_argument(
         "--workdir",
         type=Path,
         metavar="DIR",

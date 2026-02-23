@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from rich import print as rprint
@@ -11,6 +12,8 @@ from vibe.core.agents.models import BuiltinAgentName
 from vibe.core.config import (
     MissingAPIKeyError,
     MissingPromptFileError,
+    ModelConfig,
+    ProviderConfig,
     VibeConfig,
     load_dotenv_values,
 )
@@ -20,6 +23,103 @@ from vibe.core.session.session_loader import SessionLoader
 from vibe.core.types import LLMMessage, OutputFormat, Role
 from vibe.core.utils import ConversationLimitException, logger
 from vibe.setup.onboarding import run_onboarding
+
+
+def _apply_api_key_override(api_key: str, model_name: str | None) -> None:
+    """Set API key in environment variable based on model or default provider."""
+    if model_name:
+        config = VibeConfig.load()
+        model_config = _find_model_config(config, model_name)
+        if model_config:
+            provider = config.get_provider_for_model(model_config)
+            if provider.api_key_env_var:
+                os.environ[provider.api_key_env_var] = api_key
+                return
+
+    # Default: try common provider API keys
+    for env_var in ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "MISTRAL_API_KEY"]:
+        os.environ[env_var] = api_key
+        break
+
+
+def _find_model_config(config: VibeConfig, model_name: str) -> ModelConfig | None:
+    """Find model config by name or alias."""
+    for model in config.models:
+        if model.name == model_name or model.alias == model_name:
+            return model
+    return None
+
+
+def _apply_model_override(config: VibeConfig, model_name: str) -> VibeConfig:
+    """Override the active model in config."""
+    model_config = _find_model_config(config, model_name)
+
+    if model_config:
+        # Model exists in config, set it as active
+        config.active_model = model_config.alias or model_config.name
+        return config
+
+    # Model doesn't exist - we need to create a temporary config with the model
+    # Try to determine the provider from the model name or use openai as default
+    provider_name = _infer_provider_from_model(model_name)
+
+    # Check if provider exists, if not create a temporary one
+    provider = None
+    for p in config.providers:
+        if p.name == provider_name:
+            provider = p
+            break
+
+    if provider is None:
+        # Create a new provider config
+        provider = ProviderConfig(
+            name=provider_name,
+            api_base=_get_api_base_for_provider(provider_name),
+            api_key_env_var=f"{provider_name.upper()}_API_KEY",
+        )
+        config.providers.append(provider)
+
+    # Create model config
+    new_model = ModelConfig(
+        name=model_name,
+        provider=provider_name,
+        alias=model_name.split("/")[-1],  # Use last part of model name as alias
+        input_price=0.0,
+        output_price=0.0,
+    )
+    config.models.append(new_model)
+    config.active_model = new_model.alias
+
+    return config
+
+
+def _infer_provider_from_model(model_name: str) -> str:
+    """Infer provider from model name."""
+    model_lower = model_name.lower()
+    if "gpt" in model_lower or "o1" in model_lower or "o3" in model_lower:
+        return "openai"
+    if "claude" in model_lower:
+        return "anthropic"
+    if "mistral" in model_lower or "codestral" in model_lower:
+        return "mistral"
+    if "llama" in model_lower:
+        return "ollama"
+    if "qwen" in model_lower:
+        return "ollama"
+    # Default to openai
+    return "openai"
+
+
+def _get_api_base_for_provider(provider: str) -> str:
+    """Get API base URL for a provider."""
+    bases = {
+        "openai": "https://api.openai.com/v1",
+        "anthropic": "https://api.anthropic.com",
+        "mistral": "https://api.mistral.ai/v1",
+        "ollama": "http://localhost:11434/v1",
+        "fireworks": "https://api.fireworks.ai/inference/v1",
+    }
+    return bases.get(provider, "https://api.openai.com/v1")
 
 
 def get_initial_agent_name(args: argparse.Namespace) -> str:
@@ -129,9 +229,17 @@ def run_cli(args: argparse.Namespace) -> None:
         run_onboarding()
         sys.exit(0)
 
+    # Handle --api-key before loading config, so it's available for provider lookup
+    if args.api_key:
+        _apply_api_key_override(args.api_key, args.model)
+
     try:
         initial_agent_name = get_initial_agent_name(args)
         config = load_config_or_exit()
+
+        # Apply CLI overrides after config is loaded
+        if args.model:
+            config = _apply_model_override(config, args.model)
 
         if args.enabled_tools:
             config.enabled_tools = args.enabled_tools

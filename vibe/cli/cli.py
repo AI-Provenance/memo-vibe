@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from typing import Any
 
 from rich import print as rprint
 
@@ -25,10 +26,9 @@ from vibe.core.utils import ConversationLimitException, logger
 from vibe.setup.onboarding import run_onboarding
 
 
-def _apply_api_key_override(api_key: str, model_name: str | None) -> None:
+def _apply_api_key_override(api_key: str, model_name: str | None, config: VibeConfig) -> None:
     """Set API key in environment variable based on model or default provider."""
     if model_name:
-        config = VibeConfig.load()
         model_config = _find_model_config(config, model_name)
         if model_config:
             provider = config.get_provider_for_model(model_config)
@@ -122,6 +122,60 @@ def _get_api_base_for_provider(provider: str) -> str:
     return bases.get(provider, "https://api.openai.com/v1")
 
 
+def _persist_cli_model_override(config: VibeConfig) -> None:
+    """Save the CLI model override to the config file."""
+    try:
+        updates: dict[str, Any] = {
+            "active_model": config.active_model,
+            "providers": [p.model_dump() for p in config.providers],
+            "models": [m.model_dump() for m in config.models],
+        }
+        VibeConfig.save_updates(updates)
+    except Exception:
+        pass  # Don't fail if saving fails
+
+
+def _persist_api_key_override(api_key: str, model_name: str | None, config: VibeConfig) -> None:
+    """Save the CLI API key override to the .env file."""
+    try:
+        from vibe.core.paths.global_paths import GLOBAL_ENV_FILE
+
+        env_var = None
+        if model_name:
+            model_config = _find_model_config(config, model_name)
+            if model_config:
+                provider = config.get_provider_for_model(model_config)
+                env_var = provider.api_key_env_var
+
+        if not env_var:
+            env_var = "OPENAI_API_KEY"  # Default
+
+        # Read existing .env content
+        env_content = ""
+        if GLOBAL_ENV_FILE.path.exists():
+            env_content = GLOBAL_ENV_FILE.path.read_text(encoding="utf-8")
+
+        # Update or add the API key
+        lines = env_content.strip().split("\n")
+        updated = False
+        new_lines = []
+        for line in lines:
+            if line.startswith(f"{env_var}="):
+                new_lines.append(f"{env_var}={api_key}")
+                updated = True
+            else:
+                new_lines.append(line)
+
+        if not updated:
+            new_lines.append(f"{env_var}={api_key}")
+
+        GLOBAL_ENV_FILE.path.write_text(
+            "\n".join(new_lines) + "\n", encoding="utf-8"
+        )
+    except Exception:
+        pass  # Don't fail if saving fails
+
+
 def get_initial_agent_name(args: argparse.Namespace) -> str:
     if args.prompt is not None and args.agent == BuiltinAgentName.DEFAULT:
         return BuiltinAgentName.AUTO_APPROVE
@@ -145,16 +199,96 @@ def get_prompt_from_stdin() -> str | None:
 
 def load_config_or_exit() -> VibeConfig:
     try:
-        return VibeConfig.load()
+        config = VibeConfig.load()
     except MissingAPIKeyError:
         run_onboarding()
-        return VibeConfig.load()
+        config = VibeConfig.load()
     except MissingPromptFileError as e:
         rprint(f"[yellow]Invalid system prompt id: {e}[/]")
         sys.exit(1)
     except ValueError as e:
         rprint(f"[yellow]{e}[/]")
         sys.exit(1)
+
+    # Migrate old config to new defaults if needed
+    config = _migrate_config_if_needed(config)
+    return config
+
+
+def _migrate_config_if_needed(config: VibeConfig) -> VibeConfig:
+    """Migrate old config to include new providers and update defaults."""
+    needs_save = False
+
+    # Add new providers if they don't exist
+    new_providers = {
+        "openai": ProviderConfig(
+            name="openai",
+            api_base="https://api.openai.com/v1",
+            api_key_env_var="OPENAI_API_KEY",
+            api_style="openai",
+        ),
+        "anthropic": ProviderConfig(
+            name="anthropic",
+            api_base="https://api.anthropic.com",
+            api_key_env_var="ANTHROPIC_API_KEY",
+            api_style="anthropic",
+            reasoning_field_name="reasoning",
+        ),
+    }
+
+    existing_provider_names = {p.name for p in config.providers}
+    for name, provider in new_providers.items():
+        if name not in existing_provider_names:
+            config.providers.append(provider)
+            needs_save = True
+
+    # Add new models if they don't exist
+    new_models = [
+        ModelConfig(
+            name="gpt-4o",
+            provider="openai",
+            input_price=2.5,
+            output_price=10.0,
+        ),
+        ModelConfig(
+            name="gpt-4o-mini",
+            provider="openai",
+            alias="gpt-4o-mini",
+            input_price=0.15,
+            output_price=0.6,
+        ),
+        ModelConfig(
+            name="claude-sonnet-4-20250514",
+            provider="anthropic",
+            input_price=3.0,
+            output_price=15.0,
+        ),
+    ]
+
+    existing_model_names = {m.name for m in config.models}
+    for model in new_models:
+        if model.name not in existing_model_names:
+            config.models.append(model)
+            needs_save = True
+
+    # If active_model is old mistral default, switch to new default
+    if config.active_model in ("devstral-2", "devstral-small", "mistral-vibe-cli-latest"):
+        config.active_model = "gpt-4o-mini"
+        needs_save = True
+
+    # Save if changes were made
+    if needs_save:
+        try:
+            updates: dict[str, Any] = {
+                "active_model": config.active_model,
+                "providers": [p.model_dump() for p in config.providers],
+                "models": [m.model_dump() for m in config.models],
+            }
+            VibeConfig.save_updates(updates)
+        except Exception:
+            pass  # Don't fail if migration save fails
+
+    return config
 
 
 def bootstrap_config_files() -> None:
@@ -229,10 +363,6 @@ def run_cli(args: argparse.Namespace) -> None:
         run_onboarding()
         sys.exit(0)
 
-    # Handle --api-key before loading config, so it's available for provider lookup
-    if args.api_key:
-        _apply_api_key_override(args.api_key, args.model)
-
     try:
         initial_agent_name = get_initial_agent_name(args)
         config = load_config_or_exit()
@@ -240,6 +370,11 @@ def run_cli(args: argparse.Namespace) -> None:
         # Apply CLI overrides after config is loaded
         if args.model:
             config = _apply_model_override(config, args.model)
+            _persist_cli_model_override(config)
+
+        if args.api_key:
+            _apply_api_key_override(args.api_key, args.model, config)
+            _persist_api_key_override(args.api_key, args.model, config)
 
         if args.enabled_tools:
             config.enabled_tools = args.enabled_tools
